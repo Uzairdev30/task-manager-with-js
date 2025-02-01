@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet"> <!-- For Icons -->
+    <style>
+        body {
+            background-color: #FFF0DC;
+            color: #543A14;
+            transition: all 0.3s ease;
+        }
+        body.dark-mode {
+            background-color: #131010;
+            color: #FFF0DC;
+        }
+        .task-card {
+            transition: transform 0.2s;
+            border: 1px solid #F0BB78;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .task-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .priority-high { border-left: 5px solid #F0BB78; }
+        .priority-medium { border-left: 5px solid #FF8C00; }
+        .priority-low { border-left: 5px solid #32CD32; }
+        .btn-dark {
+            background-color: #543A14;
+            border-color: #543A14;
+        }
+        .btn-dark:hover {
+            background-color: #F0BB78;
+            border-color: #F0BB78;
+        }
+        .btn-primary {
+            background-color: #F0BB78;
+            border-color: #F0BB78;
+        }
+        .btn-primary:hover {
+            background-color: #543A14;
+            border-color: #543A14;
+        }
+        .btn-sm {
+            margin-right: 5px;
+        }
+        .progress-bar {
+            background-color: #F0BB78;
+        }
+        .card-title {
+            color: #543A14;
+        }
+        .card.bg-success {
+            background-color: #32CD32 !important;
+        }
+        .validation-msg {
+            color: #FF4C4C;
+            font-size: 1rem;
+            font-weight: bold;
+            background-color: rgba(255, 76, 76, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 5px;
+            animation: shake 0.5s ease-in-out;
+            display: none;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        .dark-mode .validation-msg {
+            background-color: rgba(255, 76, 76, 0.2);
+        }
+
+        /* Modal Styles */
+        .modal-content {
+            border-radius: 10px;
+            background-color: #FF4C4C;
+            color: white;
+            border: none;
+        }
+        .modal-header {
+            border-bottom: 2px solid #FF8C00;
+        }
+        .modal-title {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .modal-footer button {
+            border-radius: 5px;
+        }
+        .modal-footer .btn-danger {
+            background-color: #FF8C00;
+        }
+        .modal-footer .btn-danger:hover {
+            background-color: #FF4C4C;
+        }
+        .modal-footer .btn-secondary {
+            background-color: #543A14;
+        }
+        .modal-footer .btn-secondary:hover {
+            background-color: #F0BB78;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Task Manager Dashboard</h1>
+            <button class="btn btn-dark" id="toggleMode">
+                <i class="fas fa-moon" id="moonIcon"></i>
+                <i class="fas fa-sun" id="sunIcon" style="display: none;"></i>
+            </button>
+        </div>
+
+        <div class="mb-3">
+            <input type="text" class="form-control" id="taskInput" placeholder="Enter a new task">
+            <div id="taskInputError" class="validation-msg">Please enter a task.</div>
+            <select class="form-select mt-2" id="prioritySelect">
+                <option value="">Select</option>
+                <option value="low">Low Priority</option>
+                <option value="medium">Medium Priority</option>
+                <option value="high">High Priority</option>
+            </select>
+            <div id="prioritySelectError" class="validation-msg">Please select a priority.</div>
+            <button class="btn btn-primary mt-2" onclick="addTask()">Add Task</button>
+        </div>
+
+        <div class="progress mb-3 col-12">
+            <div class="progress-bar" role="progressbar" style="width: 0%;" id="progressBar"></div>
+        </div>
+
+        <div class="row" id="taskList"></div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this task? This action cannot be undone.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle Dark Mode
+        document.getElementById('toggleMode').addEventListener('click', function() {
+            const body = document.body;
+            const moonIcon = document.getElementById('moonIcon');
+            const sunIcon = document.getElementById('sunIcon');
+            body.classList.toggle('dark-mode');
+            moonIcon.style.display = body.classList.contains('dark-mode') ? 'none' : 'inline-block';
+            sunIcon.style.display = body.classList.contains('dark-mode') ? 'inline-block' : 'none';
+        });
+
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let taskToDelete = null;
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            const priority = document.getElementById('prioritySelect').value;
+
+            let valid = true;
+
+            // Reset validation messages
+            document.getElementById('taskInputError').style.display = 'none';
+            document.getElementById('prioritySelectError').style.display = 'none';
+
+            // Validate task input
+            if (taskInput.value.trim() === '') {
+                document.getElementById('taskInputError').style.display = 'block';
+                valid = false;
+            }
+
+            // Validate priority selection
+            if (priority === '') {
+                document.getElementById('prioritySelectError').style.display = 'block';
+                valid = false;
+            }
+
+            // If valid, add the task
+            if (valid) {
+                const task = {
+                    id: Date.now(),
+                    text: taskInput.value,
+                    completed: false,
+                    priority: priority
+                };
+
+                tasks.push(task);
+                taskInput.value = '';
+                document.getElementById('prioritySelect').value = '';
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+            }
+        }
+
+        function toggleTask(id) {
+            tasks = tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            renderTasks();
+        }
+
+        function deleteTask(id) {
+            taskToDelete = id;
+            const myModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            myModal.show();
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            tasks = tasks.filter(task => task.id !== taskToDelete);
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            renderTasks();
+            const myModal = bootstrap.Modal.getInstance(document.getElementById('deleteModal'));
+            myModal.hide();
+        });
+
+        function renderTasks() {
+            const taskList = document.getElementById('taskList');
+            taskList.innerHTML = '';
+
+            tasks.forEach(task => {
+                const taskCard = document.createElement('div');
+                taskCard.className = `col-md-12 mb-3 task-card priority-${task.priority}`;
+                taskCard.innerHTML = `
+                    <div class="card ${task.completed ? 'bg-success text-white' : ''}">
+                        <div class="card-body">
+                            <h5 class="card-title">${task.text}</h5>
+                            <button class="btn btn-sm btn-${task.completed ? 'warning' : 'success'}" onclick="toggleTask(${task.id})">
+                                ${task.completed ? 'Mark Incomplete' : 'Mark Complete'}
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteTask(${task.id})">Delete</button>
+                        </div>
+                    </div>
+                `;
+                taskList.appendChild(taskCard);
+            });
+
+            updateProgressBar();
+        }
+
+        function updateProgressBar() {
+            const completedTasks = tasks.filter(task => task.completed).length;
+            const percentage = tasks.length ? (completedTasks / tasks.length) * 100 : 0;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+        }
+
+        // Initial render
+        renderTasks();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
